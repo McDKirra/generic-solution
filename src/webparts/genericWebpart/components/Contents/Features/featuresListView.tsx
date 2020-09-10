@@ -1,11 +1,14 @@
 
 import * as React from 'react';
+import { Icon  } from 'office-ui-fabric-react/lib/Icon';
+
+import { IMyProgress } from '../../IReUsableInterfaces';
+
+import { IContentsListInfo, IMyListInfo, IServiceLog } from '../../../../../services/listServices/listTypes';
 
 import { buildPropsHoverCard } from '../../../../../services/hoverCardService';
 
-import { convertTextToListItems } from '../../../../../services/basicElements';
-
-import { IContentsGroupInfo, IGroupBucketInfo} from './groupsComponent';
+import { IContentsFeatureInfo, IFeatureBucketInfo} from './featuresComponent';
 
 import { mergeStyles } from 'office-ui-fabric-react/lib/Styling';
 import { Fabric, Stack, IStackTokens, initializeIcons } from 'office-ui-fabric-react';
@@ -15,14 +18,14 @@ import { createLink } from '../../HelpInfo/AllLinks';
 import styles from '../listView.module.scss';
 import stylesInfo from '../../HelpInfo/InfoPane.module.scss';
 
-export interface IMyLogGroupProps {
+export interface IMyLogFeatureProps {
     //title: string;
     titles: [];
     searchMeta: string;
     webURL: string;
     blueBar?: string;
 
-    items: IGroupBucketInfo;
+    items: IFeatureBucketInfo;
     showSettings: boolean;
     railsOff: boolean;  //Should only be used by people who know what they are doing.  Can cause destructive functions very quickly
     descending: boolean;
@@ -37,7 +40,7 @@ export interface IMyLogGroupProps {
 
 }
 
-export interface IMyLogGroupState {
+export interface IMyLogFeatureState {
   maxChars?: number;
 }
 
@@ -60,7 +63,7 @@ const iconClassInfo = mergeStyles({
 });
 
 
-export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLogGroupState> {
+export default class MyLogFeature extends React.Component<IMyLogFeatureProps, IMyLogFeatureState> {
 
 
     /***
@@ -74,7 +77,7 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
  *                                                                                                       
  */ 
 
-    constructor(props: IMyLogGroupProps) {
+    constructor(props: IMyLogFeatureProps) {
         super(props);
         this.state = {
           maxChars: this.props.maxChars ? this.props.maxChars : 50,
@@ -99,10 +102,8 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
  *                                                                                         
  */
 
-    public componentDidUpdate(prevProps: IMyLogGroupProps): void {
-      //this._updateWebPart(prevProps);
-      let doUpdate = false;
-
+    public componentDidUpdate(prevProps: IMyLogFeatureProps): void {
+    //this._updateWebPart(prevProps);
     }
 
 /***
@@ -117,13 +118,13 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
  */
 
 
-    public render(): React.ReactElement<IMyLogGroupProps> {
+    public render(): React.ReactElement<IMyLogFeatureProps> {
 
       let thisLog = null;
 
-      if ( this.props.items.groups != null && this.props.items.count > 0 ) { 
+      if ( this.props.items.features != null && this.props.items.count > 0 ) { 
 
-        let logItems : IContentsGroupInfo[] = this.props.items.groups;
+        let logItems : IContentsFeatureInfo[] = this.props.items.features;
 
         let styleAdvanced = this.props.showSettings ? styles.showMe : styles.hideMe;
         let styleTitle = this.props.showSettings ? styles.hideMe : styles.nowWrapping;
@@ -139,7 +140,7 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
 
         if ( this.props.railsOff ) { columnsToVisible = styles.hideMe ; }
 
-        let itemRows = logItems.length === 0 ? null : logItems.map( Grp => { 
+        let itemRows = logItems.length === 0 ? null : logItems.map( Fetr => { 
 
           let defButtonStyles = {
             root: {padding:'0px !important', height: 26, width: 26, backgroundColor: 'white'},//color: 'green' works here
@@ -151,35 +152,21 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
            },
           };
 
-          let groupTitle = Grp.Title != null && Grp.Title.indexOf('SharingLinks') === 0 ? Grp.Title.slice(0, 20) : Grp.Title;
-          let groupLink = createLink(this.props.webURL + '_layouts/15/people.aspx?MembershipGroupId=' + Grp.Id, '_blank', groupTitle );
-
-          let userString = Grp.userString;
-          
-          if  ( Grp.userString === undefined || Grp.userString === null ) {
-
-          } else if ( this.props.specialAlt === true ) {
-              userString = convertTextToListItems( Grp.userString, ';', 15, 'ul');
-          }
-
-          // && this.props.specialAlt === true
           //import { buildPropsHoverCard } from '../../../../../services/hoverCardService';
-          let detailsCard = buildPropsHoverCard(Grp, ["Title","Description","Id","odata.type", "typeString"], ["meta","searchString"] , true, null );
+          let detailsCard = buildPropsHoverCard(Fetr, ["name","DefinitionId","type","typeString","odata.type"], ["meta","searchString"] , true, null );
 
             //columnsToVisible
             return <tr>
                 <td className={ '' }> { '' }</td> 
-                <td className={ styleTitle }> {  groupTitle }</td>
+                <td className={ styleTitle }> { Fetr.name }</td>
+                <td className={ styleTitle }> { Fetr.DefinitionId }</td>
 
-                <td className= { styleAdvanced }> { groupLink }</td>
-                <td className={ '' }> { Grp.Id }</td> 
+                <td className= { styleAdvanced }> { }</td>
 
-                <td className={ styleDesc }> { Grp.Description != null ? Grp.Description.slice(0,this.state.maxChars) + '...' : Grp.Description } </td>
+                <td className={ styleDesc }> {  } </td>
 
                 <td className={ styleSpecial }> { /*this.getWebSpecialValue( F ) */ '' } </td>
                 <td className= { styleRailsOff }>Rails Off Content</td>
-                <td className= { styleUsers }> {Grp.userCount } </td>
-                <td className= { styleUsers }> { userString } </td>
                 
                 <td style={{ backgroundColor: 'white' }} className={ styles.listButtons }>  { detailsCard }</td>
 
@@ -202,9 +189,9 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
         let webTable = <table style={{ display: '', borderCollapse: 'collapse', width: '100%' }} className={stylesInfo.infoTable}>
             <tr>
                 <th></th>
-                <th className={ styleTitle }>Title</th>
-                <th className={ styleAdvanced }>Link to Group</th>
-                <th className={ '' }>Id</th>
+                <th className={ styleTitle }>Name</th>
+                <th className={ styleTitle }>DefinitonId</th>
+
                 <th className={ styleDesc }>Description</th>
 
                 { /* <th className={ columnsToVisible }>Group</th> */ }
@@ -212,13 +199,13 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
                 <th className={ styleSpecial }></th>
 
                 <th className= { styleRailsOff }>Rails Off Heading</th>
-                <th className= { styleUsers }>Users</th>
-                <th className= { styleUsers }></th>
+
                 <th>Details</th>
 
             </tr>
             { itemRows }
         </table>;
+
         let barText = this.props.blueBar && this.props.blueBar != null ? this.props.blueBar : this.props.items.bucketLabel;
         if (barText === 'O') { barText = 'Groups with \"Owner\" in the Title' ; }
         else if (barText === 'M') { barText = 'Groups with \"Member\" in the Title' ; }

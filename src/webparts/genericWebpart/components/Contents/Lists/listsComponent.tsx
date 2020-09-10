@@ -10,20 +10,20 @@ import { Web, Lists } from "@pnp/sp/presets/all"; //const projectWeb = Web(usePr
 import "@pnp/sp/webs";
 
 import { IValidTemplate, allAvailableLists } from './listsFunction';
-import { addItemToArrayIfItDoesNotExist } from './listsFunction';
+import {  } from './listsFunction';
 
 import { IContentsListInfo, IMyListInfo, IServiceLog, IContentsLists } from '../../../../../services/listServices/listTypes'; //Import view arrays for Time list
 
-import { doesObjectExistInArray } from '../../../../../services/arrayServices';
+import { doesObjectExistInArray, addItemToArrayIfItDoesNotExist } from '../../../../../services/arrayServices';
 
 import { IGenericWebpartProps } from '../../IGenericWebpartProps';
 import { IGenericWebpartState } from '../../IGenericWebpartState';
 
-import { IPickedList } from '../contentsComponent';
+import {  } from '../contentsComponent';
 
 import styles from '../contents.module.scss';
 
-import { IMyProgress, IUser } from '../../IReUsableInterfaces';
+import { IPickedList, IMyProgress, IUser } from '../../IReUsableInterfaces';
 
 import { ProgressIndicator } from 'office-ui-fabric-react/lib/ProgressIndicator';
 

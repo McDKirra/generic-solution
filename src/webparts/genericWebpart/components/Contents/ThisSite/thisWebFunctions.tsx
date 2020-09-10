@@ -1,8 +1,8 @@
-import { Web, IList, IWebInfo, IWeb } from "@pnp/sp/presets/all";
+import { Web, IList, IWebInfo } from "@pnp/sp/presets/all";
 
 import { sp } from "@pnp/sp";
-import "@pnp/sp/sites";
 
+import "@pnp/sp/webs";
 import "@pnp/sp/clientside-pages/web";
 import { ClientsideWebpart } from "@pnp/sp/clientside-pages";
 import { CreateClientsidePage, PromotedState, ClientsidePageLayoutType, ClientsideText,  } from "@pnp/sp/clientside-pages";
@@ -34,6 +34,7 @@ import { BasicProps, AdvProps, GraphProps, HubProps, NavProps, SPOProps, LegacyP
 
 import { pivCats } from './thisSiteComponent';
 
+
 function getThisElement(K: string, val: any) {
     let result = null;
     let elements : string[] = [];
@@ -46,19 +47,28 @@ function getThisElement(K: string, val: any) {
     } else if ( K === 'CurrentChangeToken') {
         let val2 : string = JSON.stringify(val).replace(";",""); //Replace first semi-colon
         elements = val2.split(';');
+        elements[0] += ';';
+        elements[1] += ';';
+        elements[2] += ';';
         result = elements.map( e => { return buildMLineDiv(0, e); });
 
-    } else if ( K = 'odata.metadata') {
-        let val2 : string = val;
-        elements = val2.split('$');
-        elements[1] = '$' + elements[1];
-        result = elements.map( e => { return buildMLineDiv(0, e); });
+    } else if ( K === 'odata.metadata') {
+        let val2 : string = JSON.stringify(val);
+        if ( val2.indexOf('metadata') > -1 ) {
+            elements = val2.split('metadata');
+            if ( elements.length > 1 ) {
+                elements[1] = 'metadata' + elements[1];
+                result = elements.map( e => { return buildMLineDiv(0, e); });
+            }
+        }
 
-    } else if ( K = 'ResourcePath') {
-        let val2 : string = val;
+    } else if ( K === 'ResourcePath') {
+        let val2 : string = JSON.stringify(val);
         elements = val2.split(':');
-        elements[0] = elements[0] + ':' ;
-        result = elements.map( e => { return buildMLineDiv(0, e); });
+        if ( elements.length > 1 ) {
+            elements[0] = elements[0] + ':' ;
+            result = elements.map( e => { return buildMLineDiv(0, e); });
+        }
 
     } else if ( K === 'Created' || K === 'LastItemModifiedDate' || K === 'LastItemUserModifiedDate') {
         let thisTime = makeSmallTimeObject( val );
@@ -69,7 +79,7 @@ function getThisElement(K: string, val: any) {
 }
 
 //export async function provisionTestPage( makeThisPage:  IContentsSiteInfo, readOnly: boolean, setProgress: any, markComplete: any ): Promise<IServiceLog[]>{
-export async function allSiteProps( webURL: string, propBuckets: ISitePropsBucketInfo[], addThesePropsToState: any, setProgress: any, markComplete: any ): Promise<IContentsSiteInfo[]>{
+export async function allWebProps( webURL: string, propBuckets: ISitePropsBucketInfo[], addThesePropsToState: any, setProgress: any, markComplete: any ): Promise<IContentsSiteInfo[]>{
 
     let actualReturnObj = null;
     let allProps: IContentsSiteInfo[] = [];
@@ -84,18 +94,7 @@ export async function allSiteProps( webURL: string, propBuckets: ISitePropsBucke
     let thisPropsObject = null;
 
         try {
-
-            let rootWeb = await sp.site.getRootWeb();
-            console.log( 'rootWeb:', rootWeb );
-            let aOG = await rootWeb.associatedOwnerGroup.get();
-            let aMG = await rootWeb.associatedMemberGroup.get();
-            let aVG = await rootWeb.associatedVisitorGroup.get();
-            let sFeatures = await rootWeb.features.get();
-            let reg = await rootWeb.regionalSettings.get();
-            let nav = await rootWeb.navigation.topNavigationBar.get();
-            let nav2 = await rootWeb.navigation.quicklaunch.get();
-            thisPropsObject = await rootWeb.allProperties();
-            console.log( 'rootWeb All Props:', rootWeb );
+            thisPropsObject = Web(webURL);
             actualReturnObj = await thisPropsObject.get();
         
         } catch (e) {
@@ -122,6 +121,7 @@ export async function allSiteProps( webURL: string, propBuckets: ISitePropsBucke
 
                 meta = addItemToArrayIfItDoesNotExist(meta, sort );
                 meta = addItemToArrayIfItDoesNotExist(meta, bucketLabel );
+                thisKey = thisKey.toString();
 
                 let result : IContentsSiteInfo = {
                     property : thisKey,

@@ -1,11 +1,14 @@
 
 import * as React from 'react';
+import { Icon  } from 'office-ui-fabric-react/lib/Icon';
+
+import { IMyProgress } from '../../IReUsableInterfaces';
+
+import { IContentsListInfo, IMyListInfo, IServiceLog } from '../../../../../services/listServices/listTypes';
 
 import { buildPropsHoverCard } from '../../../../../services/hoverCardService';
 
-import { convertTextToListItems } from '../../../../../services/basicElements';
-
-import { IContentsGroupInfo, IGroupBucketInfo} from './groupsComponent';
+import { IContentsSiteInfo, ISitePropsBucketInfo } from  './thisSiteComponent';
 
 import { mergeStyles } from 'office-ui-fabric-react/lib/Styling';
 import { Fabric, Stack, IStackTokens, initializeIcons } from 'office-ui-fabric-react';
@@ -15,29 +18,25 @@ import { createLink } from '../../HelpInfo/AllLinks';
 import styles from '../listView.module.scss';
 import stylesInfo from '../../HelpInfo/InfoPane.module.scss';
 
-export interface IMyLogGroupProps {
+export interface IMyLogPropsProps {
     //title: string;
     titles: [];
     searchMeta: string;
     webURL: string;
-    blueBar?: string;
 
-    items: IGroupBucketInfo;
+    items: ISitePropsBucketInfo;
     showSettings: boolean;
     railsOff: boolean;  //Should only be used by people who know what they are doing.  Can cause destructive functions very quickly
     descending: boolean;
     maxChars?: number;
 
-    showUsers: boolean;
-
-    showDesc?: boolean;
     showRailsOff: boolean;  //property set by toggle to actually show or hide this content
 
     specialAlt: boolean;
 
 }
 
-export interface IMyLogGroupState {
+export interface IMyLogPropsState {
   maxChars?: number;
 }
 
@@ -60,7 +59,7 @@ const iconClassInfo = mergeStyles({
 });
 
 
-export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLogGroupState> {
+export default class MyLogProps extends React.Component<IMyLogPropsProps, IMyLogPropsState> {
 
 
     /***
@@ -74,7 +73,7 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
  *                                                                                                       
  */ 
 
-    constructor(props: IMyLogGroupProps) {
+    constructor(props: IMyLogPropsProps) {
         super(props);
         this.state = {
           maxChars: this.props.maxChars ? this.props.maxChars : 50,
@@ -99,10 +98,8 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
  *                                                                                         
  */
 
-    public componentDidUpdate(prevProps: IMyLogGroupProps): void {
-      //this._updateWebPart(prevProps);
-      let doUpdate = false;
-
+    public componentDidUpdate(prevProps: IMyLogPropsProps): void {
+    //this._updateWebPart(prevProps);
     }
 
 /***
@@ -117,29 +114,20 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
  */
 
 
-    public render(): React.ReactElement<IMyLogGroupProps> {
+    public render(): React.ReactElement<IMyLogPropsProps> {
 
       let thisLog = null;
 
-      if ( this.props.items.groups != null && this.props.items.count > 0 ) { 
+      if ( this.props.items.items != null && this.props.items.count > 0 ) { 
 
-        let logItems : IContentsGroupInfo[] = this.props.items.groups;
+        let logItems : IContentsSiteInfo[] = this.props.items.items;
 
-        let styleAdvanced = this.props.showSettings ? styles.showMe : styles.hideMe;
-        let styleTitle = this.props.showSettings ? styles.hideMe : styles.nowWrapping;
         let styleRails = this.props.railsOff ? styles.showMe : styles.hideMe;
-        let columnsToVisible = !this.props.railsOff ? styles.showCell : styles.hideMe;
-        let styleSpecial = this.props.railsOff ? styles.hideMe : styles.showCell;
-        let styleDesc = this.props.showDesc ? styles.showCell : styles.hideMe;
-
-        let styleUsers = this.props.showUsers ? styles.showCell : styles.hideMe;
-
+        let styleSpecial = this.props.railsOff || ['Visible','9','Hidden',''].indexOf( this.props.searchMeta ) > -1 ? styles.hideMe : styles.showCell;
         let styleRailsOff = this.props.railsOff ? styles.showCell : styles.hideMe;
         let styleOnRailsOn = this.props.railsOff ? styles.hideMe : styles.showCell;
 
-        if ( this.props.railsOff ) { columnsToVisible = styles.hideMe ; }
-
-        let itemRows = logItems.length === 0 ? null : logItems.map( Grp => { 
+        let itemRows = logItems.length === 0 ? null : logItems.map( thisItem => { 
 
           let defButtonStyles = {
             root: {padding:'0px !important', height: 26, width: 26, backgroundColor: 'white'},//color: 'green' works here
@@ -151,37 +139,36 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
            },
           };
 
-          let groupTitle = Grp.Title != null && Grp.Title.indexOf('SharingLinks') === 0 ? Grp.Title.slice(0, 20) : Grp.Title;
-          let groupLink = createLink(this.props.webURL + '_layouts/15/people.aspx?MembershipGroupId=' + Grp.Id, '_blank', groupTitle );
-
-          let userString = Grp.userString;
-          
-          if  ( Grp.userString === undefined || Grp.userString === null ) {
-
-          } else if ( this.props.specialAlt === true ) {
-              userString = convertTextToListItems( Grp.userString, ';', 15, 'ul');
-          }
-
-          // && this.props.specialAlt === true
           //import { buildPropsHoverCard } from '../../../../../services/hoverCardService';
-          let detailsCard = buildPropsHoverCard(Grp, ["Title","Description","Id","odata.type", "typeString"], ["meta","searchString"] , true, null );
+          let detailsCard = buildPropsHoverCard(thisItem, ["property","value"], ["meta","searchString"] , true, null );
 
-            //columnsToVisible
+            /**
+             * Check if type is object if you get this react error:
+             * 
+             *   Objects are not valid as a React child (found: object with keys {StringValue}).
+             *   If you meant to render a collection of children, use an array instead.
+             */
+            let valueCell = null;
+
+            if ( thisItem.element != null ) {
+              valueCell = thisItem.element;
+
+            } else if ( typeof thisItem.value === 'object' ) { 
+                valueCell = JSON.stringify(thisItem.value);
+
+            } else { valueCell = thisItem.value; }
+
+            let shortProperty = thisItem.property != null && thisItem.property.length > 30 ? thisItem.property.slice(0, 30) + '...' : thisItem.property;
+
             return <tr>
-                <td className={ '' }> { '' }</td> 
-                <td className={ styleTitle }> {  groupTitle }</td>
+                <td className={ styles.nowWrapping }> {  thisItem.meta[0]  }</td> 
+                <td className={ styles.nowWrapping }> {  shortProperty  }</td> 
+                <td> {  valueCell }</td>
 
-                <td className= { styleAdvanced }> { groupLink }</td>
-                <td className={ '' }> { Grp.Id }</td> 
+                { /*<td className={ styleSpecial }> this.getWebSpecialValue( F )  </td> */ }
+                { /*<td className= { styleRailsOff }>Rails Off Content</td> */ }
 
-                <td className={ styleDesc }> { Grp.Description != null ? Grp.Description.slice(0,this.state.maxChars) + '...' : Grp.Description } </td>
-
-                <td className={ styleSpecial }> { /*this.getWebSpecialValue( F ) */ '' } </td>
-                <td className= { styleRailsOff }>Rails Off Content</td>
-                <td className= { styleUsers }> {Grp.userCount } </td>
-                <td className= { styleUsers }> { userString } </td>
-                
-                <td style={{ backgroundColor: 'white' }} className={ styles.listButtons }>  { detailsCard }</td>
+                <td style={{ backgroundColor: 'white' }} className={ styles.listButtons }>  {  detailsCard  }</td>
 
                 </tr>;
 
@@ -199,46 +186,34 @@ export default class MyLogGroup extends React.Component<IMyLogGroupProps, IMyLog
  *                                                                      
  */
 
-        let webTable = <table style={{ display: '', borderCollapse: 'collapse', width: '100%' }} className={stylesInfo.infoTable}>
+        let propTable = <table style={{ display: '', borderCollapse: 'collapse', width: '100%' }} className={stylesInfo.infoTable}>
             <tr>
-                <th></th>
-                <th className={ styleTitle }>Title</th>
-                <th className={ styleAdvanced }>Link to Group</th>
-                <th className={ '' }>Id</th>
-                <th className={ styleDesc }>Description</th>
+                <th>Category</th>           
+                <th>Property</th>
+                <th>Value</th>
+
 
                 { /* <th className={ columnsToVisible }>Group</th> */ }
                 { /* <th className={ columnsToVisible }>Default</th> */ }
-                <th className={ styleSpecial }></th>
 
                 <th className= { styleRailsOff }>Rails Off Heading</th>
-                <th className= { styleUsers }>Users</th>
-                <th className= { styleUsers }></th>
                 <th>Details</th>
 
             </tr>
-            { itemRows }
+            {  itemRows  }
         </table>;
-        let barText = this.props.blueBar && this.props.blueBar != null ? this.props.blueBar : this.props.items.bucketLabel;
-        if (barText === 'O') { barText = 'Groups with \"Owner\" in the Title' ; }
-        else if (barText === 'M') { barText = 'Groups with \"Member\" in the Title' ; }
-        else if (barText === 'V') { barText = 'Groups with \"Visitor\" in the Title' ; }
-        else if (barText != '') { barText = barText + 'Groups' ; }
 
-        let webTitle = null;
- 
-        if ( barText != null ) {
-          webTitle =<div className={ stylesInfo.infoHeading }><span style={{ paddingLeft: 20 }}>{ barText } - ( { this.props.items.count } )</span></div>;
+        let propTitle = this.props.items.bucketLabel == '' ? null :
+            <div className={ stylesInfo.infoHeading }><span style={{ paddingLeft: 20 }}>{ this.props.items.bucketLabel } - ( { this.props.items.count } )</span></div>;
 
-        } else if ( this.props.items.bucketLabel !== '' ) {
-          webTitle =<div className={ stylesInfo.infoHeading }><span style={{ paddingLeft: 20 }}>{ this.props.items.bucketLabel } - ( { this.props.items.count } )</span></div>;
-        }
-            
+        //Set to null to remove blue bar above buckets (for when there is only one bucket)
+        //propTitle = null;
+
         return (
           <div className={ styles.logListView }>
               <div style={{ paddingTop: 10}} className={ stylesInfo.infoPaneTight }>
-                { webTitle }
-                { webTable }
+                { propTitle }
+                {  propTable  }
             </div>
           </div>
           );

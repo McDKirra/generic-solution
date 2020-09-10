@@ -4,15 +4,17 @@ import { CompoundButton, Stack, IStackTokens, elementContains, initializeIcons }
 import { SearchBox } from 'office-ui-fabric-react/lib/SearchBox';
 import { Pivot, PivotItem, IPivotItemProps} from 'office-ui-fabric-react/lib/Pivot';
 
-import { sp } from "@pnp/sp";
-import { Web, Lists } from "@pnp/sp/presets/all"; //const projectWeb = Web(useProjectWeb);
+import { Web, SiteGroups, SiteGroup, ISiteGroups, ISiteGroup, ISiteUserProps, ISiteUser, IFeatures, Features, IFeatureInfo } from "@pnp/sp/presets/all"; //const projectWeb = Web(useProjectWeb);
+
+import "@pnp/sp/site-users";
+import { ISiteUserInfo } from '@pnp/sp/site-users/types';
 
 import { IWebAddResult, IWebInfo, IWeb, } from "@pnp/sp/webs/types";
 
 import "@pnp/sp/webs";
 
-import { IValidTemplate, allAvailableWebs } from './websFunctions';
-import {  } from './websFunctions';
+import { allAvailableFeatures } from './featuresFunctions';
+import {  } from './featuresFunctions';
 
 import { IContentsListInfo, IMyListInfo, IServiceLog, IContentsLists } from '../../../../../services/listServices/listTypes'; //Import view arrays for Time list
 
@@ -44,7 +46,7 @@ import { PageContext } from '@microsoft/sp-page-context';
 import { IMyPivots, IPivot,  } from '../../IReUsableInterfaces';
 import { pivotOptionsGroup, } from '../../../../../services/propPane';
 
-import MyLogWeb from './websListView';
+import MyLogFeature from './featuresListView';
 
 import * as links from '../../HelpInfo/AllLinks';
 
@@ -59,34 +61,37 @@ export interface IMyPivCat {
 
 export const pivCats = {
     all: {title: 'All', desc: '', order: 1},
-    newWebs: {title: 'New' , desc: '', order: 1},
-    recCreate:  {title: 'RecentlyCreated' , desc: '', order: 1},
-    oldCreate: {title: 'Old', desc: '', order: 9 },
-    recUpdate: {title: 'RecentlyUpdated', desc: '', order: 9 },
-    oldUpdate: {title: 'Stale', desc: '', order: 9 },
+    associatedGroups: {title: 'Associated' , desc: '', order: 1},
+    system:  {title: 'System' , desc: '', order: 1},
+    security: {title: 'Security', desc: '', order: 9 },
+    sharepoint: {title: 'SharePoint', desc: '', order: 9 },
+    visible: {title: 'Visible', desc: '', order: 9 },
+    notvisible: {title: 'NotVisible', desc: '', order: 9 },
+    hidden: {title: 'Hidden', desc: '', order: 9 },
+    oGroups: {title: 'O', desc: '', order: 9 },
+    mGroups: {title: 'M', desc: '', order: 9 },
+    vGroups: {title: 'V', desc: '', order: 9 },
+    empty: {title: 'Empty', desc: '', order: 9 },
+    other: {title: 'Other', desc: '', order: 9 },
 };
 
 
-export interface IContentsWebInfo extends Partial<IWebInfo>{
+//export interface IContentsFeatureInfo extends Partial<ISiteFeatureInfo>{
+    export interface IContentsFeatureInfo extends Partial<IFeatureInfo> {
+
+    name?: string;
     sort: string;
     bucketCategory: string;
     bucketLabel: string;
     bucketIdx: any;
-    FillInChoice?: boolean; //Allow Fill In
-    ShowInFiltersPane?: number;
-    CanBeDeleted?: boolean;
     searchString: string;
     meta: string[];
-
-    timeCreated : ITheTime;
-    timeModified : ITheTime;
-    bestCreate: string;
-    bestMod: string;
+    typeString: string;
 
 }
 
 
-export interface IInspectWebsProps {
+export interface IInspectFeaturesProps {
     // 0 - Context
     
     pageContext: PageContext;
@@ -97,6 +102,8 @@ export interface IInspectWebsProps {
     allowSettings?: boolean;
 
     webURL?: string;
+
+    showPane: boolean;
 
     allLoaded: boolean;
 
@@ -111,14 +118,12 @@ export interface IInspectWebsProps {
 export interface IMyHistory {
     count: number;
     errors: IMyProgress[];
-    webs: IMyProgress[];
-    views: IMyProgress[];
-    items: IMyProgress[];
+    features: IMyProgress[];
 
 }
 
-export interface IWebBucketInfo {
-    webs: IContentsWebInfo[];
+export interface IFeatureBucketInfo {
+    features: IContentsFeatureInfo[];
     count: number;
     sort: string;
     bucketCategory: string;
@@ -126,7 +131,7 @@ export interface IWebBucketInfo {
 
 }
 
-export interface IInspectWebsState {
+export interface IInspectFeaturesState {
 
     allowOtherSites?: boolean; //default is local only.  Set to false to allow provisioning parts on other sites.
 
@@ -143,26 +148,24 @@ export interface IInspectWebsState {
     searchText: string;
     searchMeta: string;
 
-    searchedItems: IContentsWebInfo[];
-    first20searchedItems: IContentsWebInfo[];
+    searchedItems: IContentsFeatureInfo[];
+    first20searchedItems: IContentsFeatureInfo[];
 
-    webBuckets: IWebBucketInfo[];
+    featureBuckets: IFeatureBucketInfo[];
     // 2 - Source and destination list information
-    allWebs: IContentsWebInfo[];
+    allFeatures: IContentsFeatureInfo[];
+
+    blueBar: string;
     meta: string[];
 
     allowSettings: boolean;  //property that determines if the related toggle is visible or not
     allowRailsOff: boolean;  //property that determines if the related toggle is visible or not
 
-    showDates: boolean;
+    showUsers: boolean;
 
     showDesc: boolean;      //property set by toggle to actually show or hide this content
     showSettings: boolean;  //property set by toggle to actually show or hide this content
     showRailsOff: boolean;  //property set by toggle to actually show or hide this content
-
-    showXML: boolean;
-    showJSON: boolean;
-    showSPFx: boolean;
 
     showMinWebs: boolean;
 
@@ -172,14 +175,14 @@ export interface IInspectWebsState {
 
 }
 
-export default class InspectWebs extends React.Component<IInspectWebsProps, IInspectWebsState> {
+export default class InspectFeatures extends React.Component<IInspectFeaturesProps, IInspectFeaturesState> {
 
     private createSearchBuckets() {
-        let result : IWebBucketInfo[] = [
-            { webs: [], count: 0, sort : '0' , bucketCategory: 'All' , bucketLabel: '0. All Subsites'} ,
-//            { webs: [], count: 0, sort : '3' , bucketCategory: 'ReadOnly', bucketLabel: '3. ReadOnly - Calculated/Lookup?' } ,
-//            { webs: [], count: 0, sort : '6' , bucketCategory: 'OOTB', bucketLabel: '6. OOTB' } ,
-//            { webs: [], count: 0, sort : '9' , bucketCategory: 'System', bucketLabel: '9. System'} ,
+        let result : IFeatureBucketInfo[] = [
+            { features: [], count: 0, sort : '0' , bucketCategory: 'All' , bucketLabel: '0. All Subsites'} ,
+//            { features: [], count: 0, sort : '3' , bucketCategory: 'ReadOnly', bucketLabel: '3. ReadOnly - Calculated/Lookup?' } ,
+//            { features: [], count: 0, sort : '6' , bucketCategory: 'OOTB', bucketLabel: '6. OOTB' } ,
+//            { features: [], count: 0, sort : '9' , bucketCategory: 'System', bucketLabel: '9. System'} ,
         ];
         return result;
     }
@@ -187,9 +190,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
         let history: IMyHistory = {
             count: 0,
             errors: [],
-            webs: [],
-            views: [],
-            items: [],
+            features: [],
         };
         return history;
 
@@ -206,7 +207,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
  *                                                                                                       
  */
 
-    public constructor(props:IInspectWebsProps){
+    public constructor(props:IInspectFeaturesProps){
         super(props);
 
         this.state = { 
@@ -217,21 +218,22 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
             history: this.clearHistory(),
             allLoaded: false,
 
-            allWebs: [],
+            allFeatures: [],
             searchedItems: [],
             first20searchedItems: [],
             searchCount: 0,
 
-            webBuckets : this.createSearchBuckets(),
+            featureBuckets : this.createSearchBuckets(),
 
             meta: [],
+            blueBar: null,
 
             webURL: this.props.webURL,
 
             allowSettings: this.props.allowSettings === true ? true : false,
             allowRailsOff: this.props.allowRailsOff === true ? true : false,
 
-            showDates: false,
+            showUsers: false,
             showDesc: false,
             showSettings: false,
             showRailsOff: false,
@@ -241,9 +243,6 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
 
             errMessage: '',
 
-            showXML: false,
-            showJSON: false,
-            showSPFx: false,
             showMinWebs: false,
 
             specialAlt: false,
@@ -293,7 +292,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
  *                                                          
  */
 
-    public render(): React.ReactElement<IInspectWebsProps> {
+    public render(): React.ReactElement<IInspectFeaturesProps> {
 
 
         let x = 1;
@@ -310,7 +309,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
  *                                                                                     
  */
 
-            console.log('renderStateWebs', this.state.allWebs );
+            console.log('renderStateGroups', this.state.allFeatures );
 
             let thisPage = null;
 
@@ -318,22 +317,19 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
                 { this.state.errMessage }
             </div>;
 
-//          let webWeb = <div className={ styles.floatLeft }> {  // This format will put all tables horizontal
-            let webWeb = <div> {
-                this.state.webBuckets.map( bucket => {
+//          let webFeature = <div className={ styles.floatLeft }> {  // This format will put all tables horizontal
+            let webFeature = <div> {
+                this.state.featureBuckets.map( bucket => {
 
-                    return <MyLogWeb 
+                    return <MyLogFeature 
                         showSettings = { this.state.showSettings } railsOff= { this.state.showRailsOff }
-                        showDates = { this.state.showDates } 
+                        showUsers = { this.state.showUsers } blueBar={ this.state.blueBar }
                         items={ bucket }    specialAlt= { this.state.specialAlt }
                         searchMeta= { this.state.searchMeta } showDesc = { this.state.showDesc } showRailsOff= { this.state.showDesc } 
-                        showXML= { this.state.showXML } showJSON= { this.state.showJSON } showSPFx= { this.state.showSPFx } showMinWebs= { this.state.showDesc } 
                         webURL = { this.state.webURL } descending={false} titles={null} 
-                        ></MyLogWeb>;
-                })
-
-            }
-
+                        ></MyLogFeature>;
+                    })
+                }
             </div>;
 
             /*https://developer.microsoft.com/en-us/fabric#/controls/web/searchbox*/
@@ -349,7 +345,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
                 onChange={ this._searchForItems.bind(this) }
               />
               <div className={styles.searchStatus}>
-                { 'Searching ' + this.state.searchCount + ' webs' }
+                { 'Searching ' + this.state.searchCount + ' features' }
                 { /* 'Searching ' + (this.state.searchType !== 'all' ? this.state.filteredTiles.length : ' all' ) + ' items' */ }
               </div>
             </div>;
@@ -368,37 +364,47 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
 
             let toggles = <div style={{ float: 'right' }}> { makeToggles(this.getPageToggles()) } </div>;
 
-            let webPivots = this.createPivotObject(this.state.searchMeta, '');
+            let featurePivots = this.createPivotObject(this.state.searchMeta, '');
 
-            let settings = this.state.showSettings ? this.getSiteSettingsLinks() : null;
+//            let settings = this.state.showSettings ? this.getSiteSettingsLinks() : null;
+            let settings = null;
 
             let noInfo = [];
             noInfo.push( <h3>{'Found ' + this.state.searchCount + ' items with this search criteria:'}</h3> )  ;
             if ( this.state.searchText != '' ) { noInfo.push( <p>{'Search Text: ' + this.state.searchText}</p> )  ; }
             if ( this.state.searchMeta != '' ) { noInfo.push( <p>{'Refiner: ' + this.state.searchMeta}</p> ) ; }
 
+            let showProgress = false;
+            if ( this.state.progress != null && this.state.progress.progressHidden === false ) { 
+                showProgress = this.state.progress.percentComplete === 100 ? false : true; }
+
+            let myProgress = showProgress === false ? null : <ProgressIndicator
+                label={this.state.progress.label}
+                description={this.state.progress.description}
+                percentComplete={this.state.progress.percentComplete}
+                progressHidden={this.state.progress.progressHidden}/>;
+
             thisPage = <div className={styles.contents}><div><div>{ disclaimers }</div>
 
-                <div className={ this.state.errMessage === '' ? styles.hideMe : styles.showErrorMessage  }>{ this.state.errMessage } </div>
-
+                <div className={ this.state.errMessage === '' ? styles.hideMe : styles.showErrorMessage  }>{ errMessage } </div>
+                <div className={ showProgress === true ? styles.showSearch : styles.hideSearch}> { myProgress }</div>
                 <Stack horizontal={true} wrap={true} horizontalAlign={"space-between"} verticalAlign= {"center"} tokens={stackPageTokens}>{/* Stack for Buttons and Webs */}
                      { searchBox } { toggles }
                 </Stack>
 
                 <div> { settings } </div>
 
-                <div style={{ height:30, paddingBottom: 15} }> { webPivots } </div>
-
-                <div>
+                <div style={{ height:30, paddingBottom: 15} }> { featurePivots } </div>
 
                 <div className={ this.state.searchCount !== 0 ? styles.hideMe : styles.showErrorMessage  }>{ noInfo } </div>
 
                 <Stack horizontal={false} wrap={true} horizontalAlign={"stretch"} tokens={stackPageTokens}>{/* Stack for Buttons and Webs */}
-                    { webWeb }
+                    { webFeature }
                 </Stack>
-                </div></div></div>;
 
-                if ( this.state.allWebs.length === 0 ) {
+                </div></div>;
+
+                if ( this.state.allFeatures.length === 0 ) {
                     thisPage = <div style={{ paddingBottom: 30 }}className={styles.contents}>
                     { errMessage }</div>;
                 }
@@ -425,32 +431,33 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
         } else {
             console.log('provisionPage.tsx return null');
             return (  <div className={ styles.contents }>
-                <h2>There are no Webs to see</h2>
+                <h2>There are no Features to see</h2>
             </div> );
         }
 
     }   //End Public Render
 
 
-    private getWebDefs() {
+    private getFeatureDefs( showUsers = null ) {
         let listGuid = '';
+        if ( showUsers === null ) { showUsers = this.state.showUsers; }
         if ( this.props.pickedWeb && this.props.pickedWeb.guid ) { listGuid = this.props.pickedWeb.guid; }
-        let result : any = allAvailableWebs( this.state.webURL, this.state.webBuckets, this.addTheseWebsToState.bind(this), this.setProgress.bind(this), this.markComplete.bind(this) );
+        let result : any = allAvailableFeatures( this.state.webURL, this.state.featureBuckets, this.addTheseFeaturesToState.bind(this), this.setProgress.bind(this), this.markComplete.bind(this) );
 
     }
 
-    private addTheseWebsToState( allWebs, scope : 'Web' | 'Web' , errMessage : string ) {
+    private addTheseFeaturesToState( allFeatures, scope : 'Web' | 'Web' , errMessage : string ) {
 
-        let newFilteredItems : IContentsWebInfo[] = this.getNewFilteredItems( '', this.state.searchMeta, allWebs );
+        let newFilteredItems : IContentsFeatureInfo[] = this.getNewFilteredItems( '', this.state.searchMeta, allFeatures );
 
-        let webBuckets  : IWebBucketInfo[] = this.bucketWebs( newFilteredItems, this.state.webBuckets );
+        let featureBuckets  : IFeatureBucketInfo[] = this.bucketFeatures( newFilteredItems, this.state.featureBuckets );
         
         this.setState({
-            allWebs: allWebs,
+            allFeatures: allFeatures,
             searchedItems: newFilteredItems,
             searchCount: newFilteredItems.length,
             errMessage: errMessage,
-            webBuckets: webBuckets,
+            featureBuckets: featureBuckets,
             searchText: '',
             searchMeta: this.state.searchMeta,
         });
@@ -458,19 +465,19 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
     }
 
     /**
-     * This puts all the webs into the buckets
-     * @param allWebs 
-     * @param webBuckets 
+     * This puts all the features into the buckets
+     * @param allFeatures 
+     * @param featureBuckets 
      */
-    private bucketWebs( allWebs : IContentsWebInfo[], webBuckets : IWebBucketInfo[] ) {
+    private bucketFeatures( allFeatures : IContentsFeatureInfo[], featureBuckets : IFeatureBucketInfo[] ) {
 
-        for (let i in allWebs ) {
-            webBuckets[allWebs[i].bucketIdx].webs.push( allWebs[i] );
-            webBuckets[allWebs[i].bucketIdx].count ++;
+        for (let i in allFeatures ) {
+            featureBuckets[allFeatures[i].bucketIdx].features.push( allFeatures[i] );
+            featureBuckets[allFeatures[i].bucketIdx].count ++;
         }
-        console.log('bucketWebs:  webBuckets', webBuckets);
+        console.log('bucketFeatures:  featureBuckets', featureBuckets);
 
-        return webBuckets;
+        return featureBuckets;
     }
 
     private markComplete() {
@@ -523,11 +530,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
         if ( page === 'E') {
             history.errors = history.errors.length === 0 ? [progress] : [progress].concat(history.errors);
         } else if ( page === 'C') {
-            history.webs = history.webs.length === 0 ? [progress] : [progress].concat(history.webs);
-        } else if ( page === 'V') {
-            history.views = history.views.length === 0 ? [progress] : [progress].concat(history.views);
-        } else if ( page === 'I') {
-            history.items = history.items.length === 0 ? [progress] : [progress].concat(history.items);
+            history.features = history.features.length === 0 ? [progress] : [progress].concat(history.features);
         }
     }
 
@@ -558,7 +561,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
     console.log('searchForItems: this', this);
 
     //Be sure to pass item.props.itemKey to get filter value
-    this.searchForWebs( this.state.searchText, item.props.itemKey, false );
+    this.searchForFeatures( this.state.searchText, item.props.itemKey, false );
   }
 
   public _searchForItems = (item): void => {
@@ -568,19 +571,53 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
     console.log('searchForItems: item', item);
     console.log('searchForItems: this', this);
 
-    this.searchForWebs( item, this.state.searchMeta, true );
+    this.searchForFeatures( item, this.state.searchMeta, true );
   }
   
-  private getNewFilteredItems(text: string, meta: string , searchItems : IContentsWebInfo[] ) {
+  
+  public searchForFeatures = (text: string, meta: string , resetSpecialAlt: boolean ): void => {
 
-    let newFilteredItems : IContentsWebInfo[] = [];
+    let searchItems : IContentsFeatureInfo[] = this.state.allFeatures;
+    let searchCount = searchItems.length;
+
+    let featureBuckets : IFeatureBucketInfo[] = this.createSearchBuckets();
+
+    let newFilteredItems : IContentsFeatureInfo[] = this.getNewFilteredItems( text, meta, searchItems );
+
+    let blueBar = meta != null ? meta : null;
+
+    featureBuckets  = this.bucketFeatures( newFilteredItems, featureBuckets );
+
+    console.log('Searched for:' + text);
+    console.log('Web Meta:' + meta);
+    console.log('and found these features:', newFilteredItems);
+    searchCount = newFilteredItems.length;
+
+    this.setState({
+      searchedItems: newFilteredItems,
+      searchCount: searchCount,
+      blueBar: blueBar,
+      featureBuckets: featureBuckets,
+      searchText: text.toLowerCase(),
+      searchMeta: meta,
+      specialAlt: resetSpecialAlt === true || this.state.searchMeta !== meta ? false : !this.state.specialAlt , 
+    });
+
+
+    return ;
+    
+  } //End searchForFeatures
+
+  private getNewFilteredItems(text: string, meta: string , searchItems : IContentsFeatureInfo[] ) {
+
+    let newFilteredItems : IContentsFeatureInfo[] = [];
 
     for (let thisSearchItem of searchItems) {
 
         let searchString = thisSearchItem.searchString;
-        let webMeta = thisSearchItem.meta;
+        let featureMeta = thisSearchItem.meta;
   
-        if ( meta === undefined || meta == null || meta == '' || webMeta.indexOf(meta) > -1 ) {
+        if ( meta === undefined || meta == null || meta == '' || featureMeta.indexOf(meta) > -1 ) {
           if( searchString.indexOf(text.toLowerCase()) > -1 ) {
             newFilteredItems.push(thisSearchItem);
             }
@@ -591,35 +628,6 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
 
   }
 
-  public searchForWebs = (text: string, meta: string , resetSpecialAlt: boolean ): void => {
-
-    let searchItems : IContentsWebInfo[] = this.state.allWebs;
-    let searchCount = searchItems.length;
-
-    let webBuckets : IWebBucketInfo[] = this.createSearchBuckets();
-
-    let newFilteredItems : IContentsWebInfo[] = this.getNewFilteredItems( text, meta, searchItems );
-
-    webBuckets  = this.bucketWebs( newFilteredItems, webBuckets );
-
-    console.log('Searched for:' + text);
-    console.log('Web Meta:' + meta);
-    console.log('and found these webs:', newFilteredItems);
-    searchCount = newFilteredItems.length;
-
-    this.setState({
-      searchedItems: newFilteredItems,
-      searchCount: searchCount,
-      webBuckets: webBuckets,
-      searchText: text.toLowerCase(),
-      searchMeta: meta,
-      specialAlt: resetSpecialAlt === true || this.state.searchMeta !== meta ? false : !this.state.specialAlt , 
-    });
-
-
-    return ;
-    
-  } //End searchForItems
 
   
 /***
@@ -634,40 +642,7 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
  */
 
     private _updateStateOnPropsChange(): void {
-        this.getWebDefs();
-    }
-
-    private checkThisWeb(index: number, testWebs : IContentsWebInfo[] ){
-        //const thisWeb = Web(testWebs[index].webURL);
-        //testWebs[index].webExists = false;
-        //testWebs[index].pageExists = false;
-
-        /*
-        thisWeb.pages.get().then((response) => {
-            testWebs[index].webExists = true;
-            this.checkThisPage(index, testWebs, thisWeb);
-
-        }).catch((e) => {
-            let errMessage = getHelpfullError(e, true, true);
-            console.log('checkThisWeb', errMessage);
-            this.updateStatePages(index, testWebs);
-        });
-    */
-
-    }
-    
-    private checkThisPage(index: number, testWebs : IContentsWebInfo[], thisWeb: any ){
-        //const thisWeb = Web(testWebs[index].webURL);
-        thisWeb.webs.getByTitle(testWebs[index].Title).get().then((response) => {
-            //testWebs[index].pageExists = true;
-            //testWebs[index].pageExistedB4 = true;   
-            //this.updateStatePages(index,testWebs);
-
-        }).catch((e) => {
-            let errMessage = getHelpfullError(e, true, true);
-            console.log('checkThisPage', errMessage);
-            //this.updateStatePages(index, testWebs);
-        });
+        this.getFeatureDefs();
     }
 
 
@@ -696,24 +671,30 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
           onLinkClick= { this._onSearchForMeta.bind(this) }  //{this.specialClick.bind(this)}
           selectedKey={ setPivot }
           headersOnly={true}>
-            {this.getWebPivots()}
+            {this.getFeaturePivots()}
         </Pivot>;
         return pivotWeb;
       }
 
-    private getWebPivots() {
+    private getFeaturePivots() {
 
         let all = this.buildFilterPivot( pivCats.all );
-        let newWebs = this.buildFilterPivot(pivCats.newWebs);
+        let associatedGroups = this.buildFilterPivot(pivCats.associatedGroups);
 
-        let recCreate = this.buildFilterPivot(pivCats.recCreate);
-        let oldCreate = this.buildFilterPivot(pivCats.oldCreate);
-        let recUpdate = this.buildFilterPivot(pivCats.recUpdate);
-        let oldUpdate = this.buildFilterPivot(pivCats.oldUpdate);
+        let system = this.buildFilterPivot(pivCats.system);
+        let security = this.buildFilterPivot(pivCats.security);
+        let sharepoint = this.buildFilterPivot(pivCats.sharepoint);
+        let other = this.buildFilterPivot(pivCats.other);
 
+        let empty = this.buildFilterPivot(pivCats.empty);
+        let visible = this.buildFilterPivot(pivCats.visible);
+        let notVisible = this.buildFilterPivot(pivCats.notvisible);
+        let hidden = this.buildFilterPivot(pivCats.hidden);
         
-        let thesePivots = [all, newWebs, recCreate, oldCreate, recUpdate, oldUpdate ];
+        //let thesePivots = [all, , , , , security, sharepoint, other,visible,  system, notVisible, hidden ];
+        let thesePivots = [ all ];
 
+        if ( this.state.showUsers === true ) { thesePivots.push(empty); }
         return thesePivots;
     }
 
@@ -753,14 +734,14 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
             styles: '',
         };
 
-        let togDates = {
+        let togUsers = {
             //label: <span style={{ color: 'red', fontWeight: 900}}>Rails Off!</span>,
-            label: <span>Dates</span>,
-            key: 'togggleDates',
-            _onChange: this.updateTogggleDates.bind(this),
-            checked: this.state.showDates,
-            onText: 'Actual',
-            offText: 'Friendly',
+            label: <span>Users</span>,
+            key: 'togggleUsers',
+            _onChange: this.updateTogggleUsers.bind(this),
+            checked: this.state.showUsers,
+            onText: '',
+            offText: '',
             className: '',
             styles: '',
         };
@@ -777,57 +758,10 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
             styles: '',
         };
 
-        let togXML = {
-            //label: <span style={{ color: 'red', fontWeight: 900}}>Rails Off!</span>,
-            label: <span>XML</span>,
-            key: 'togggleXML',
-            _onChange: this.updateTogggleXML.bind(this),
-            checked: this.state.showXML,
-            onText: '-',
-            offText: '-',
-            className: '',
-            styles: '',
-        };
-
-        let togJSON = {
-            //label: <span style={{ color: 'red', fontWeight: 900}}>Rails Off!</span>,
-            label: <span>JSON</span>,
-            key: 'togggleJSON',
-            _onChange: this.updateTogggleJSON.bind(this),
-            checked: this.state.showJSON,
-            onText: '-',
-            offText: '-',
-            className: '',
-            styles: '',
-        };
-
-        let togSPFx = {
-            //label: <span style={{ color: 'red', fontWeight: 900}}>Rails Off!</span>,
-            label: <span>SPFx</span>,
-            key: 'togggleSPFx',
-            _onChange: this.updateTogggleSPFx.bind(this),
-            checked: this.state.showSPFx,
-            onText: '-',
-            offText: '-',
-            className: '',
-            styles: '',
-        };
-
-        let railsLabel = <span style={{ color: 'red', fontWeight: 700}}>Rails Off!</span>;
-        let togRails = {
-            label: railsLabel,
-            key: 'togggleRailsOff',
-            _onChange: this.updateTogggleRailsOff.bind(this),
-            checked: this.state.showRailsOff,
-            onText: '-',
-            offText: '-',
-            className: '',
-            styles: '',
-        };
 
         //let theseToggles = [togDesc, togSet ];
         //if ( this.props.allowRailsOff === true ) { theseToggles.push( togXML, togJSON, togSPFx, togRails ); }
-        let theseToggles = [togDesc , togDates];
+        let theseToggles = [ togSet ];
 
         let pageToggles : IContentsToggles = {
             toggles: theseToggles,
@@ -848,10 +782,16 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
         });
     }
 
-    private updateTogggleDates() {
+    private updateTogggleUsers() {
+
+        let showUser = this.state.showUsers === true ? false : true;
+
         this.setState({
-            showDates: !this.state.showDates,
+            showUsers: !this.state.showUsers,
         });
+
+        this.getFeatureDefs(showUser);
+
     }
 
     private updateTogggleSettings() {
@@ -866,32 +806,6 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
         });
     }
 
-    private updateTogggleXML() {
-        this.setState({
-            showXML: !this.state.showXML,
-            showJSON: this.state.showJSON,
-            showSPFx: this.state.showSPFx,
-        });
-    }
-
-    
-    private updateTogggleJSON() {
-        this.setState({
-            showXML: this.state.showXML,
-            showJSON: !this.state.showJSON,
-            showSPFx: this.state.showSPFx,
-        });
-    }
-
-    
-    private updateTogggleSPFx() {
-        this.setState({
-            showXML: this.state.showXML,
-            showJSON: this.state.showJSON,
-            showSPFx: !this.state.showSPFx,
-        });
-    }
-
     private getSiteSettingsLinks() {
 
         let listGUID = this.props.pickedWeb.guid;
@@ -901,7 +815,6 @@ export default class InspectWebs extends React.Component<IInspectWebsProps, IIns
                 <Stack horizontal={true} wrap={true} horizontalAlign={"start"} tokens={stackSettingTokens}>{/* Stack for Buttons and Webs */}
                     { createLink( this.state.webURL + "/_layouts/15/ListEdit.aspx?List=(" + listGUID + ")" ,'_blank', 'List Settings' )}
                     { createLink( this.state.webURL + "/_layouts/15/ListGeneralSettings.aspx?List=(" + listGUID + ")" ,'_blank', 'Title' )}
-
 
                 </Stack>
         </div>;

@@ -15,13 +15,19 @@ import styles from './contents.module.scss';
 
 import { escape } from '@microsoft/sp-lodash-subset';
 
-import { IMyPivots, IPivot,  ILink, IUser, IMyIcons, IMyFonts, IChartSeries, ICharNote } from '../IReUsableInterfaces';
+import { IPickedList, IPickedWebBasic, IMyPivots, IPivot,  ILink, IUser, IMyIcons, IMyFonts, IChartSeries, ICharNote } from '../IReUsableInterfaces';
 
 import InspectLists from './Lists/listsComponent';
 
 import InspectColumns from './Fields/fieldsComponent';
 
 import InspectWebs from './Webs/websComponent';
+
+import InspectGroups from './Groups/groupsComponent';
+
+import InspectUsers from './Users/usersComponent';
+
+import InspectFeatures from './Features/featuresComponent';
 
 import InspectParts from './WParts/partsComponent';
 
@@ -63,21 +69,6 @@ export interface IInspectContentsProps {
 
 }
 
-export interface IPickedWebBasic {
-    title: string;
-    ServerRelativeUrl: string;
-    guid: string;
-    url: string;
-    siteIcon: string;
-}
-
-export interface IPickedList {
-    title: string;
-    name: string;
-    guid: string;
-    isLibrary: boolean;
-}
-
 export interface IInspectContentsState {
 
     allowOtherSites?: boolean; //default is local only.  Set to false to allow provisioning parts on other sites.
@@ -101,7 +92,7 @@ export interface IInspectContentsState {
 
 }
 
-export const contentsTabs = ['ThisSite','Subsites','Lists','Columns','Views','Types','WebParts','Groups', 'RailsOff'];
+export const contentsTabs = ['ThisSite','Subsites','Lists','Columns','Views','Types','WebParts','Groups', 'Users', 'Features', 'RailsOff'];
 
 export default class InspectContents extends React.Component<IInspectContentsProps, IInspectContentsState> {
 
@@ -184,9 +175,9 @@ export default class InspectContents extends React.Component<IInspectContentsPro
 
     public render(): React.ReactElement<IInspectContentsProps> {
 
-        const pickListMessage = <div>Please pick a list first</div>;
-        const pickWebMessage = <div>Please pick a WEB first</div>;
-        const noPageAvailable = <div style={{ paddingBottom: 30 }}>This feature is not yet available</div>;
+        const pickListMessage = <div style={{ paddingBottom: 30, paddingTop: 30 }}>Please pick a list first</div>;
+        const pickWebMessage = <div style={{ paddingBottom: 30, paddingTop: 30  }}>Please pick a WEB first</div>;
+        const noPageAvailable = <div style={{ paddingBottom: 30, paddingTop: 30  }}>This feature is not yet available</div>;
 
         //InspectThisSite
         const sitePage = !this.state.pickedWeb ? pickWebMessage : <div>
@@ -262,7 +253,39 @@ export default class InspectContents extends React.Component<IInspectContentsPro
         </div>;
 
         const groupsPage = <div>
-                { noPageAvailable }
+            <InspectGroups
+                allowOtherSites={ false }
+                pageContext={ this.props.pageContext }
+                pickedWeb = { this.state.pickedWeb }
+                showPane={true}
+                allLoaded={false}
+                currentUser = {this.props.currentUser }
+                webURL = { this.state.webURL }
+            ></InspectGroups>
+        </div>;
+
+        const usersPage = <div>
+        <InspectUsers
+            allowOtherSites={ false }
+            pageContext={ this.props.pageContext }
+            pickedWeb = { this.state.pickedWeb }
+            showPane={true}
+            allLoaded={false}
+            currentUser = {this.props.currentUser }
+            webURL = { this.state.webURL }
+        ></InspectUsers>
+        </div>;
+
+        const featurePage = <div>
+        <InspectFeatures
+            allowOtherSites={ false }
+            pageContext={ this.props.pageContext }
+            pickedWeb = { this.state.pickedWeb }
+            showPane={true}
+            allLoaded={false}
+            currentUser = {this.props.currentUser }
+            webURL = { this.state.webURL }
+        ></InspectFeatures>
         </div>;
 
         const railsPage = <div>
@@ -307,7 +330,6 @@ export default class InspectContents extends React.Component<IInspectContentsPro
                 { typesPage }
             </PivotItem>
             <PivotItem headerText={ contentsTabs[6] }>
-                <h3>WebParts</h3>
                 { partsPage }
             </PivotItem>
             <PivotItem headerText={ contentsTabs[7] }>
@@ -315,8 +337,23 @@ export default class InspectContents extends React.Component<IInspectContentsPro
                 { groupsPage }
             </PivotItem>
 
-            {  !this.state.allowRailsOff ? null : 
             <PivotItem headerText={ contentsTabs[8] }>
+                <h3>Users</h3>
+                { usersPage }
+            </PivotItem>
+
+
+            
+
+            <PivotItem headerText={ contentsTabs[9] }>
+                <h3>Features</h3>
+                { featurePage }
+            </PivotItem>
+
+            
+
+            {  !this.state.allowRailsOff ? null : 
+            <PivotItem headerText={ contentsTabs[10] }>
                 <h3>RailsOff</h3>
                 { railsPage }
             </PivotItem>

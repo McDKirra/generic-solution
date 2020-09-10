@@ -15,20 +15,19 @@ import { IFieldAddResult, FieldTypes, IFieldInfo, IField,
 import "@pnp/sp/webs";
 
 import { IValidTemplate, allAvailableFields } from './fieldsFunctions';
-import { addItemToArrayIfItDoesNotExist } from './fieldsFunctions';
 
 import { IContentsListInfo, IMyListInfo, IServiceLog, IContentsLists } from '../../../../../services/listServices/listTypes'; //Import view arrays for Time list
 
-import { doesObjectExistInArray } from '../../../../../services/arrayServices';
+import { doesObjectExistInArray, addItemToArrayIfItDoesNotExist } from '../../../../../services/arrayServices';
 
 import { IGenericWebpartProps } from '../../IGenericWebpartProps';
 import { IGenericWebpartState } from '../../IGenericWebpartState';
 
-import { IPickedList } from '../contentsComponent';
+import {  } from '../contentsComponent';
 
 import styles from '../contents.module.scss';
 
-import { IMyProgress, IUser } from '../../IReUsableInterfaces';
+import { IPickedList, IMyProgress, IUser } from '../../IReUsableInterfaces';
 
 import { ProgressIndicator } from 'office-ui-fabric-react/lib/ProgressIndicator';
 
@@ -360,7 +359,7 @@ export default class InspectColumns extends React.Component<IInspectColumnsProps
             </div>;
 
             /*https://developer.microsoft.com/en-us/fabric#/controls/web/searchbox*/
-            let searchBox =  
+            let searchBox = 
             <div className={[styles.searchContainer, styles.padLeft20 ].join(' ')} >
               <SearchBox
                 className={styles.searchBox}

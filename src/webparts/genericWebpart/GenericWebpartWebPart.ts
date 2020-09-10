@@ -27,6 +27,11 @@ import { defineTheList } from './components/ListProvisioning/ListsTMT/defineThis
 
 import { IMyProgress } from './components/IReUsableInterfaces';
 
+// 2020-09-08:  Add for dynamic data refiners.
+import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
+import { create1TallSeriesCharts } from './components/Charts/charts';
+
+
 export interface IGenericWebpartWebPartProps {
 
   description: string;
@@ -73,7 +78,23 @@ export interface IGenericWebpartWebPartProps {
   
 }
 
-export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGenericWebpartWebPartProps> {
+
+/**
+ * 2020-09-08:  Add for dynamic data refiners.
+ * 
+ * was:
+ * export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGenericWebpartWebPartProps> {
+ */
+export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGenericWebpartWebPartProps> implements IDynamicDataCallables {
+
+/**
+ * 2020-09-08:  Add for dynamic data refiners.
+ */
+  private _selectedRefiner0Name: string;
+  private _selectedRefiner0Value: string;
+  private _filterBy: any;
+
+
 
 /***
  *          .d88b.  d8b   db d888888b d8b   db d888888b d888888b 
@@ -89,6 +110,11 @@ export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGener
     //Added for Get List Data:  https://www.youtube.com/watch?v=b9Ymnicb1kc
     public onInit():Promise<void> {
       return super.onInit().then(_ => {
+        
+        //2020-09-08:  Add for dynamic data refiners.
+        this.context.dynamicDataSourceManager.initializeSource(this);
+
+
         // other init code may be present
 
         let mess = 'onInit - ONINIT: ' + new Date().toLocaleTimeString();
@@ -111,6 +137,46 @@ export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGener
       });
     }
   
+
+    /**
+     * 2020-09-08:  Add for dynamic data refiners.   public getPropertyDefinitions():
+     * 
+     */
+    public getPropertyDefinitions(): ReadonlyArray<IDynamicDataPropertyDefinition>{
+      return [
+        {
+          id: 'refiner0Name',
+          title: 'Field you are filtering on',
+        },
+        {
+          id: 'refiner0Value',
+          title: 'Value you are filtering on',
+        },
+        {
+          id: 'filterBy',
+          title: 'Filter by refiner component',
+        }
+      ];
+    }
+
+    /**
+     * 2020-09-08:  Add for dynamic data refiners.   public getPropertyValue:
+     * @param propertyId 
+     */
+    public getPropertyValue(propertyId: string): string {
+      switch(propertyId) {
+        case 'refiner0Name': 
+          return this._selectedRefiner0Name;
+        case 'refiner0Value':
+          return this._selectedRefiner0Value;
+        case 'filterBy':
+          return this._filterBy;
+      }
+      throw new Error('Bad property ID');
+
+    }
+
+
     public getUrlVars(): {} {
       var vars = {};
       vars = location.search
@@ -145,6 +211,7 @@ export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGener
         tenant: this.context.pageContext.web.absoluteUrl.replace(this.context.pageContext.web.serverRelativeUrl,""),
         urlVars: this.getUrlVars(),
         today: makeTheTimeObject(''),
+        parentListFieldTitles: this.properties.parentListFieldTitles,
 
         //Size courtesy of https://www.netwoven.com/2018/11/13/resizing-of-spfx-react-web-parts-in-different-scenarios/
         WebpartElement: this.domElement,
@@ -188,11 +255,34 @@ export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGener
         pivotFormat: this.properties.pivotFormat,
         pivotOptions: this.properties.pivotOptions,
         pivotTab: 'Projects', //this.properties.pivotTab (was setTab in pivot-tiles)
+        
+        onRefiner0Selected: this._handleRefiner0Selected,
 
       }
     );
 
     ReactDom.render(element, this.domElement);
+  }
+
+
+  /**
+   * 2020-09-08:  Add for dynamic data refiners.   private handleFieldSelected:
+   * @param field 
+   */
+  private _handleRefiner0Selected = ( field: string, value: any ) : void => {
+    console.log( '_handleRefiner0Selected:', field, value );
+    this._selectedRefiner0Name = field;
+    this._selectedRefiner0Value = value;
+    this._filterBy = {
+      field: field,
+      value: value,
+    }
+
+    console.log('Main Webpart: Refiners updated: ', field, value);
+    this.context.dynamicDataSourceManager.notifyPropertyChanged('refiner0Name');
+    this.context.dynamicDataSourceManager.notifyPropertyChanged('refiner0Value');
+    this.context.dynamicDataSourceManager.notifyPropertyChanged('filterBy');
+
   }
 
   protected onDispose(): void {
@@ -211,9 +301,11 @@ export default class GenericWebpartWebPart extends BaseClientSideWebPart <IGener
     const r = await list.fields();
 
     //2020-05-13:  Remove Active since it's replaced with StatusTMT which is not applicable here
-    let getFields=["Title","ProjectID1","ProjectID2","Category1","Category2","Activity","Story","Chapter","ActivityTMT","ActivityType"];
+    let defFields = ["Title","Author","Editor","Created","Modified"];
+    let filterFields=["SSChoice1","SSChoiceA","MSChoice2","MSChoiceB"];
+    let allFields = defFields.concat(filterFields);
 
-    let fieldTitles = r.filter(f => f.Hidden !== true && getFields.indexOf(f.StaticName) > -1).map( 
+    let fieldTitles = r.filter(f => f.Hidden !== true && allFields.indexOf(f.StaticName) > -1).map( 
       f => {return [f.StaticName,f.Title,f.Description,f.Required,f.FieldTypeKind];});
     
     //Update properties here:
